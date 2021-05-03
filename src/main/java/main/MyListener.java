@@ -126,6 +126,11 @@ public class MyListener extends Java8BaseListener {
 
   @Override
   public void exitBlock(final BlockContext ctx) {
+    scopes.peek().forEach(var -> {
+      if (!var.isUsed()) {
+        System.out.println(var);
+      }
+    });
     scopes.pop();
   }
 

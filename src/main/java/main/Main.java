@@ -27,7 +27,7 @@ public class Main {
 //    String javaClassContent = "public class SampleClass { int siema; void DoSomething(){" +
 //        "siema = 8;} }";
     Java8Lexer java8Lexer = new Java8Lexer(CharStreams.fromString(javaClassContent));
-    java8Lexer.new<Boolean>
+
     CommonTokenStream tokens = new CommonTokenStream(java8Lexer);
     Java8Parser parser = new Java8Parser(tokens);
     ParseTree tree = parser.compilationUnit();
