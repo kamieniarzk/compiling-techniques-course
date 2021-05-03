@@ -16,6 +16,7 @@ import main.Java8Parser.BlockContext;
 import main.Java8Parser.ClassBodyContext;
 import main.Java8Parser.ExpressionNameContext;
 import main.Java8Parser.FieldDeclarationContext;
+import main.Java8Parser.FieldModifierContext;
 import main.Java8Parser.FormalParameterListContext;
 import main.Java8Parser.IfThenStatementContext;
 import main.Java8Parser.LastFormalParameterContext;
@@ -27,6 +28,7 @@ import main.Java8Parser.MethodDeclaratorContext;
 import main.Java8Parser.TypeArgumentListContext;
 import main.Java8Parser.TypeVariableContext;
 
+import main.Java8Parser.UnaryExpressionContext;
 import main.Java8Parser.VariableDeclaratorContext;
 import main.Java8Parser.VariableDeclaratorIdContext;
 import main.Java8Parser.VariableDeclaratorListContext;
@@ -59,6 +61,11 @@ public class MyListener extends Java8BaseListener {
   }
 
   @Override
+  public void exitFieldDeclaration(final FieldDeclarationContext ctx) {
+    super.exitFieldDeclaration(ctx);
+  }
+
+  @Override
   public void exitMethodBody(final MethodBodyContext ctx) {
     super.exitMethodBody(ctx);
   }
@@ -71,6 +78,7 @@ public class MyListener extends Java8BaseListener {
         .name(var.variableDeclaratorId().Identifier().getText())
         .type(variableType)
         .line(ctx.start.getLine())
+        .isField(true)
         .build()));
   }
 
@@ -81,6 +89,11 @@ public class MyListener extends Java8BaseListener {
 
   @Override
   public void exitClassBody(final ClassBodyContext ctx) {
+    scopes.peek().forEach(var -> {
+      if (!var.isUsed()) {
+        System.out.println(var);
+      }
+    });
     scopes.pop();
   }
 
@@ -110,18 +123,6 @@ public class MyListener extends Java8BaseListener {
           .type(methodParam.unannType().getText())
           .build()));
     }
-  }
-
-
-
-  @Override
-  public void enterMethodDeclaration(final MethodDeclarationContext ctx) {
-    scopes.push(new Scope(scopes.peek(), false));
-  }
-
-  @Override
-  public void enterMethodBody(final MethodBodyContext ctx) {
-//    scopes.pop(); // to pop the scope pushed by
   }
 
   @Override
@@ -193,6 +194,15 @@ public class MyListener extends Java8BaseListener {
     }
   }
 
+//  @Override
+//  public void enterUnaryExpression(final UnaryExpressionContext ctx) {
+//    Variable variable = getScope().getVariable(ctx.getText());
+//
+//    if (variable != null) {
+//      variable.setUsed(true);
+//    }
+//  }
+
   @Override
   public void exitArgumentList(final ArgumentListContext ctx) {
     super.exitArgumentList(ctx);
@@ -207,6 +217,7 @@ public class MyListener extends Java8BaseListener {
         .name(var.variableDeclaratorId().Identifier().getText())
         .type(variableType)
         .line(ctx.start.getLine())
+        .isField(false)
         .build()));
 
   }
