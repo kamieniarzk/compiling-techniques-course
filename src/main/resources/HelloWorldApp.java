@@ -1,20 +1,24 @@
-class HelloWorldApp {
+class MyOwn {
   private int counter;
   public static final String name;
 
   public static void main(String[] args) {
-    int myVar;
-    myVar = 8;
-    int yourVar = 9;
-    siemka(yourVar);
-    System.out.println("Hello World!"); // Display the string.
-  }
-
-  public void siemka(int jakisInt, boolean jakisBoolean) {
-    Gigant siema;
-    myVar = 10;
-    if(true == true) {
-      myVar = 11;
-    }
+    int amount = 0;
+    //    myVar++;
+    System.out.println(this.name); // Display the string.
   }
 }
+
+class HelloWorldApp extends MyOwn {
+//  private int counter;
+  public static final String name;
+
+  public static void main(String[] args) {
+//    myVar++;
+    this.gay++;
+//    counter++;
+    System.out.println(this.name); // Display the string.
+    System.out.println(this.gay);
+  }
+}
+

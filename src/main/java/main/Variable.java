@@ -3,17 +3,20 @@ package main;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
-import lombok.ToString;
+import lombok.experimental.SuperBuilder;
 
 @AllArgsConstructor
+@NoArgsConstructor
 @Getter
 @Setter
-@ToString
-@Builder
-public class Variable {
-  private String name;
-  private String type;
-  private int line;
-  private boolean isUsed;
+//@Builder
+public abstract class Variable {
+
+  protected String name;
+  protected String type;
+  protected int line;
+  protected boolean isUsed;
+  protected Clazz clazz;
 }

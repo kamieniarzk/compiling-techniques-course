@@ -1,63 +1,106 @@
 package main;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Stack;
+import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.tree.ErrorNode;
-import org.antlr.v4.runtime.tree.TerminalNode;
 
+import lombok.Getter;
 import main.Java8Parser.ArgumentListContext;
 import main.Java8Parser.AssignmentContext;
 
 import main.Java8Parser.BlockContext;
 import main.Java8Parser.ClassBodyContext;
 import main.Java8Parser.ExpressionNameContext;
+import main.Java8Parser.FieldAccessContext;
 import main.Java8Parser.FieldDeclarationContext;
-import main.Java8Parser.FieldModifierContext;
 import main.Java8Parser.FormalParameterListContext;
-import main.Java8Parser.IfThenStatementContext;
 import main.Java8Parser.LastFormalParameterContext;
 import main.Java8Parser.LocalVariableDeclarationContext;
 
 import main.Java8Parser.MethodBodyContext;
 import main.Java8Parser.MethodDeclarationContext;
-import main.Java8Parser.MethodDeclaratorContext;
-import main.Java8Parser.TypeArgumentListContext;
-import main.Java8Parser.TypeVariableContext;
+import main.Java8Parser.NormalClassDeclarationContext;
+import main.Java8Parser.PostfixExpressionContext;
+import main.Java8Parser.SuperclassContext;
 
-import main.Java8Parser.UnaryExpressionContext;
 import main.Java8Parser.VariableDeclaratorContext;
-import main.Java8Parser.VariableDeclaratorIdContext;
-import main.Java8Parser.VariableDeclaratorListContext;
 
-public class MyListener extends Java8BaseListener {
+public class VariableListener extends Java8BaseListener {
 
-  private Map<Variable, Integer> variables = new HashMap<>();
+  private Map<String, Integer> variables = new LinkedHashMap<>();
 
-  public List<String> errors = new ArrayList<>();
+  private Map<Variable, Integer> variableLineMap = new LinkedHashMap<>();
+
+  private Map<Field, Integer> fields = new LinkedHashMap<>();
+
+  private Clazz currentClass;
+
+  private final List<Clazz> allClasses;
+
+  @Getter
+  private Stack<Clazz> classes = new Stack<>();
+
   private Stack<Scope> scopes = new Stack<>();
 
-  public Scope getScope() {
+  private Scope getCurrentScope() {
     return scopes.peek();
   }
 
-  public MyListener() {
+  public VariableListener(Collection<Clazz> classes) {
+    allClasses = new ArrayList<>(classes);
     scopes.push(new Scope(null, false));
   }
 
+  public List<String> getVariables() {
+    return variables.entrySet().stream()
+        .sorted(Map.Entry.comparingByValue())
+        .map(Entry::getKey)
+        .collect(Collectors.toList());
+  }
+
+  public List<LocalVariable> getUnusedLocalVariables() {
+    return variableLineMap.entrySet().stream()
+        .sorted(Map.Entry.comparingByValue())
+        .map(Entry::getKey)
+        .filter(var -> var instanceof LocalVariable)
+        .map(LocalVariable.class::cast)
+        .collect(Collectors.toList());
+  }
+
+  public List<MethodParameter> getUnusedMethodParameters() {
+    return variableLineMap.entrySet().stream()
+        .sorted(Map.Entry.comparingByValue())
+        .map(Entry::getKey)
+        .filter(var -> var instanceof MethodParameter)
+        .map(MethodParameter.class::cast)
+        .collect(Collectors.toList());
+  }
+
+  public List<Field> getAllUnusedFields() {
+    return fields.entrySet().stream()
+        .sorted(Map.Entry.comparingByValue())
+        .map(Entry::getKey)
+        .filter(field -> !field.isUsed)
+        .collect(Collectors.toList());
+  }
+
   @Override
-  public void enterMethodDeclarator(final MethodDeclaratorContext ctx) {
-    TerminalNode node = ctx.Identifier();
-    String methodName = node.getText();
+  public void enterSuperclass(final SuperclassContext ctx) {
+    final String superClassName = ctx.classType().Identifier().toString();
 
-    if (Character.isUpperCase(methodName.charAt(0))) {
-      String error = String.format("Method %s is uppercased!", methodName);
-      errors.add(error);
-    }
+    Clazz parent = allClasses.stream()
+        .filter(clazz -> clazz.getName().equals(superClassName))
+        .findAny()
+        .orElseThrow(() -> new ProgramException("Super class " + superClassName + " at line " + ctx.start.getLine() + " is not defined."));
 
+    currentClass.setParent(parent);
   }
 
   @Override
@@ -74,11 +117,12 @@ public class MyListener extends Java8BaseListener {
   public void enterFieldDeclaration(final FieldDeclarationContext ctx) {
     String variableType = ctx.unannType().getText();
     List<VariableDeclaratorContext> variableNames = ctx.variableDeclaratorList().variableDeclarator();
-    variableNames.forEach(var -> getScope().add(Variable.builder()
+
+    variableNames.forEach(var -> currentClass.add(Field.builder()
         .name(var.variableDeclaratorId().Identifier().getText())
         .type(variableType)
         .line(ctx.start.getLine())
-        .isField(true)
+        .clazz(currentClass)
         .build()));
   }
 
@@ -88,12 +132,26 @@ public class MyListener extends Java8BaseListener {
   }
 
   @Override
+  public void enterNormalClassDeclaration(final NormalClassDeclarationContext ctx) {
+    final String className = ctx.Identifier().getText();
+
+    this.currentClass = allClasses.stream()
+        .filter(clazz -> clazz.getName().equals(className))
+        .findAny()
+        .orElseThrow(() -> new ProgramException("Unexpected error."));
+  }
+
+  @Override
   public void exitClassBody(final ClassBodyContext ctx) {
-    scopes.peek().forEach(var -> {
-      if (!var.isUsed()) {
-        System.out.println(var);
-      }
-    });
+//    scopes.peek().forEach(var -> {
+//      if (!var.isUsed()) {
+////        System.out.println(var);
+//        variableLineMap.put(var, var.getLine());
+//        variables.put(var.toString(), var.getLine());
+//      }
+//    });
+//    getCurrentScope().forEach(var -> fields.put(var, var.getLine()));
+    currentClass.forEach(field -> fields.put(field, field.getLine()));
     scopes.pop();
   }
 
@@ -110,56 +168,49 @@ public class MyListener extends Java8BaseListener {
   public void parseMethodParameters(FormalParameterListContext parameterList) {
     LastFormalParameterContext lastFormalParameter = parameterList.lastFormalParameter();
     if (lastFormalParameter != null) {
-      getScope().add(Variable.builder()
+      getCurrentScope().add(MethodParameter.builder()
           .type(lastFormalParameter.formalParameter().unannType().getText())
           .name(lastFormalParameter.formalParameter().variableDeclaratorId().Identifier().getText())
           .line(lastFormalParameter.formalParameter().start.getLine())
+          .clazz(currentClass)
           .build());
     }
     if (parameterList.formalParameters() != null){
-      parameterList.formalParameters().formalParameter().forEach(methodParam -> getScope().add(Variable.builder()
+      parameterList.formalParameters().formalParameter().forEach(methodParam -> getCurrentScope().add(MethodParameter.builder()
           .line(methodParam.start.getLine())
           .name(methodParam.variableDeclaratorId().Identifier().getText())
           .type(methodParam.unannType().getText())
+          .clazz(currentClass)
           .build()));
     }
   }
 
   @Override
+  public void enterFieldAccess(final FieldAccessContext ctx) {
+    final String fieldName = ctx.Identifier().toString();
+    final Field field = currentClass.getField(fieldName);
+
+    if (field != null) {
+      field.isUsed = true;
+    } else {
+      throw new ProgramException("Field not declared.");
+    }
+
+  }
+
+  @Override
   public void exitBlock(final BlockContext ctx) {
-    scopes.peek().forEach(var -> {
-      if (!var.isUsed()) {
-        System.out.println(var);
-      }
-    });
+//    scopes.peek().forEach(var -> {
+//      if (!var.isUsed()) {
+////        System.out.println(var);
+//        variables.put(var.toString(), var.getLine());
+//
+//      }
+//    });
+    getCurrentScope().forEach(var -> variableLineMap.put(var, var.getLine()));
     scopes.pop();
   }
 
-
-  @Override
-  public void enterTypeArgumentList(final TypeArgumentListContext ctx) {
-    super.enterTypeArgumentList(ctx);
-  }
-
-  @Override
-  public void enterTypeVariable(final TypeVariableContext ctx) {
-    TerminalNode node = ctx.Identifier();
-  }
-
-  @Override
-  public void exitTypeVariable(final TypeVariableContext ctx) {
-    super.exitTypeVariable(ctx);
-  }
-
-  @Override
-  public void enterVariableDeclaratorList(final VariableDeclaratorListContext ctx) {
-    super.enterVariableDeclaratorList(ctx);
-  }
-
-  @Override
-  public void exitVariableDeclaratorList(final VariableDeclaratorListContext ctx) {
-    super.exitVariableDeclaratorList(ctx);
-  }
 
   @Override
   public void enterVariableDeclarator(final VariableDeclaratorContext ctx) {
@@ -173,53 +224,48 @@ public class MyListener extends Java8BaseListener {
   }
 
   @Override
-  public void exitVariableDeclarator(final VariableDeclaratorContext ctx) {
-    super.exitVariableDeclarator(ctx);
+  public void enterPostfixExpression(final PostfixExpressionContext ctx) {
+    super.enterPostfixExpression(ctx);
   }
-
-  @Override
-  public void enterVariableDeclaratorId(final VariableDeclaratorIdContext ctx) {
-    super.enterVariableDeclaratorId(ctx);
-  }
-
 
   @Override
   public void enterExpressionName(final ExpressionNameContext ctx) {
-    Variable variable = getScope().getVariable(ctx.getText());
+    if (ctx.ambiguousName().toString().equals("this") || ctx.ambiguousName().toString().equals("super")) {
+      System.out.println("witam w bmw x5");
+    }
 
-    if (variable != null) {
-      variable.setUsed(true);
+    System.out.println("Inside enterExpressionName");
+    Variable localVariable = getCurrentScope().getVariable(ctx.getText());
+    Field field = currentClass.getField(ctx.getText());
+
+    if (localVariable != null) {
+      localVariable.setUsed(true);
+    }
+
+    if (field != null) {
+      field.setUsed(true);
     } else {
       System.err.format("Error at line %d, variable %s was not declared in this scope.\n", ctx.start.getLine(), ctx.getText());
+      System.exit(-1);
     }
   }
 
-//  @Override
-//  public void enterUnaryExpression(final UnaryExpressionContext ctx) {
-//    Variable variable = getScope().getVariable(ctx.getText());
-//
-//    if (variable != null) {
-//      variable.setUsed(true);
-//    }
-//  }
 
   @Override
   public void exitArgumentList(final ArgumentListContext ctx) {
     super.exitArgumentList(ctx);
   }
 
-
   @Override
   public void enterLocalVariableDeclaration(final LocalVariableDeclarationContext ctx) {
     String variableType = ctx.unannType().getText();
     List<VariableDeclaratorContext> variableNames = ctx.variableDeclaratorList().variableDeclarator();
-    variableNames.forEach(var -> getScope().add(Variable.builder()
+    variableNames.forEach(var -> getCurrentScope().add(LocalVariable.builder()
         .name(var.variableDeclaratorId().Identifier().getText())
         .type(variableType)
         .line(ctx.start.getLine())
-        .isField(false)
+        .clazz(currentClass)
         .build()));
-
   }
 
   @Override
@@ -230,10 +276,10 @@ public class MyListener extends Java8BaseListener {
   @Override
   public void enterAssignment(final AssignmentContext ctx) {
     String varName = ctx.start.getText();
-    Variable variable = getScope().getVariable(varName);
+    Variable localVariable = getCurrentScope().getVariable(varName);
 
-    if (variable != null) {
-      variable.setUsed(true);
+    if (localVariable != null) {
+      localVariable.setUsed(true);
     }
   }
 }

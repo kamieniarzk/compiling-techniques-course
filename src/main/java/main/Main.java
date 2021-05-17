@@ -3,6 +3,7 @@ package main;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -23,9 +24,6 @@ public class Main {
       System.err.println("Error while reading input.");
     }
 
-
-//    String javaClassContent = "public class SampleClass { int siema; void DoSomething(){" +
-//        "siema = 8;} }";
     Java8Lexer java8Lexer = new Java8Lexer(CharStreams.fromString(javaClassContent));
 
     CommonTokenStream tokens = new CommonTokenStream(java8Lexer);
@@ -33,9 +31,37 @@ public class Main {
     ParseTree tree = parser.compilationUnit();
 
     ParseTreeWalker walker = new ParseTreeWalker();
-    MyListener listener= new MyListener();
+    ClassDeclarationListener classDeclarationListener = new ClassDeclarationListener();
 
-    walker.walk(listener, tree);
+    walker.walk(classDeclarationListener, tree);
 
+    classDeclarationListener.setSuperClasses();
+
+    List<Clazz> allInputClasses = classDeclarationListener.getAllClasses();
+
+    VariableListener variableListener = new VariableListener(allInputClasses);
+
+    try {
+      walker.walk(variableListener, tree);
+    } catch (ProgramException e) {
+      exitWithError(e.getMessage());
+    }
+
+    List<LocalVariable> unusedLocalVariables = variableListener.getUnusedLocalVariables();
+
+    List<MethodParameter> unusedMethodParameters = variableListener.getUnusedMethodParameters();
+
+    List<Field> unusedFields = variableListener.getAllUnusedFields();
+
+    System.out.println(variableListener.getUnusedLocalVariables());
+
+    variableListener.getVariables().forEach(System.out::println);
+
+  }
+
+
+  public static void exitWithError(String message) {
+    System.err.println(message);
+    System.exit(-1);
   }
 }
