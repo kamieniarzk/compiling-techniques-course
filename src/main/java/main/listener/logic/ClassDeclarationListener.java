@@ -1,12 +1,15 @@
-package main;
+package main.listener.logic;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
-import lombok.Getter;
-import main.Java8Parser.NormalClassDeclarationContext;
-import main.Java8Parser.SuperclassContext;
+import main.listener.domain.Clazz;
+import main.Program;
+import main.antlr.Java8BaseListener;
+import main.antlr.Java8Parser.NormalClassDeclarationContext;
+import main.antlr.Java8Parser.SuperclassContext;
+import main.exception.ProgramException;
 
 public class ClassDeclarationListener extends Java8BaseListener {
 
@@ -31,7 +34,7 @@ public class ClassDeclarationListener extends Java8BaseListener {
         .anyMatch(clazz -> clazz.getName().equals(className));
 
     if (classAlreadyExists) {
-      Main.exitWithError("Error at line " + ctx.start.getLine() + ", class with identifier " + className + " already exists!");
+      Program.exitWithError("Error at line " + ctx.start.getLine() + ", class with identifier " + className + " already exists!");
     }
 
     Clazz clazz = Clazz.builder()

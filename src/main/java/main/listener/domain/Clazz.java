@@ -1,4 +1,4 @@
-package main;
+package main.listener.domain;
 
 import java.util.HashSet;
 import java.util.Optional;
@@ -6,6 +6,7 @@ import java.util.Optional;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import main.listener.domain.variable.Field;
 
 @Builder
 @Setter

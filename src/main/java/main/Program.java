@@ -11,7 +11,17 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.ParseTreeWalker;
 import org.apache.commons.io.IOUtils;
 
-public class Main {
+import main.antlr.Java8Lexer;
+import main.antlr.Java8Parser;
+import main.exception.ProgramException;
+import main.listener.domain.Clazz;
+import main.listener.logic.ClassDeclarationListener;
+import main.listener.logic.VariableListener;
+import main.listener.domain.variable.LocalVariable;
+import main.listener.domain.variable.MethodParameter;
+import main.listener.domain.variable.Variable;
+
+public class Program {
 
   public static void main(String[] args) {
 
@@ -47,21 +57,32 @@ public class Main {
       exitWithError(e.getMessage());
     }
 
-    List<LocalVariable> unusedLocalVariables = variableListener.getUnusedLocalVariables();
 
-    List<MethodParameter> unusedMethodParameters = variableListener.getUnusedMethodParameters();
+    List<Variable> unusedVariables = variableListener.getUnusedVariables();
 
-    List<Field> unusedFields = variableListener.getAllUnusedFields();
-
-    System.out.println(variableListener.getUnusedLocalVariables());
-
-    variableListener.getVariables().forEach(System.out::println);
-
+    unusedVariables.forEach(Program::printUnusedVariable);
   }
 
 
   public static void exitWithError(String message) {
     System.err.println(message);
     System.exit(-1);
+  }
+
+  public static void printUnusedVariable(Variable var) {
+    String messageToPrint;
+
+    if (var instanceof MethodParameter) {
+      messageToPrint = String.format("Method parameter %s in class %s of type %s at line %d was never used.",
+          var.getName(), var.getClazz().getName(), var.getType(), var.getLine());
+    } else if (var instanceof LocalVariable) {
+      messageToPrint = String.format("Local variable %s in class %s of type %s at line %d was declared but never used.",
+          var.getName(), var.getClazz().getName(), var.getType(), var.getLine());
+    } else {
+      messageToPrint = String.format("Field %s in class %s of type %s at line %d was never used.",
+          var.getName(), var.getClazz().getName(), var.getType(), var.getLine());
+    }
+
+    System.out.println(messageToPrint);
   }
 }

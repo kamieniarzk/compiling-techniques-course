@@ -15,10 +15,9 @@ class HelloWorldApp extends MyOwn {
 
   public static void main(String[] args) {
 //    myVar++;
-    this.gay++;
+    this.name++;
 //    counter++;
-    System.out.println(this.name); // Display the string.
-    System.out.println(this.gay);
+    System.out.println(name); // Display the string.
   }
 }
 

@@ -1,8 +1,9 @@
-package main;
+package main.listener.domain.variable;
 
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
+import main.listener.domain.Clazz;
 
 @Getter
 @Setter
