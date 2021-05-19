@@ -6,13 +6,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Stack;
 import java.util.stream.Collectors;
 
-import org.antlr.v4.runtime.tree.ErrorNode;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import lombok.Getter;
+import main.antlr.Java8Parser.BasicForStatementContext;
+import main.antlr.Java8Parser.EnhancedForStatementContext;
 import main.listener.domain.Clazz;
 import main.listener.domain.Scope;
 import main.antlr.Java8BaseListener;
@@ -42,9 +43,6 @@ import main.listener.domain.variable.MethodParameter;
 import main.listener.domain.variable.Variable;
 
 public class VariableListener extends Java8BaseListener {
-
-  @Getter
-  private final Stack<Clazz> classes = new Stack<>();
 
   private final Stack<Scope> scopes = new Stack<>();
 
@@ -119,7 +117,9 @@ public class VariableListener extends Java8BaseListener {
     if (ctx.parent instanceof MethodBodyContext) {
       MethodDeclarationContext methodDeclaration = (MethodDeclarationContext) ctx.parent.parent;
       FormalParameterListContext parameterList = methodDeclaration.methodHeader().methodDeclarator().formalParameterList();
-      parseMethodParameters(parameterList);
+      if (parameterList != null) {
+        parseMethodParameters(parameterList);
+      }
     }
   }
 
@@ -146,18 +146,17 @@ public class VariableListener extends Java8BaseListener {
 
   @Override
   public void enterExpressionName(final ExpressionNameContext ctx) {
-    Variable localVariable = getCurrentScope().getVariable(ctx.getText());
-    Field field = currentClass.getField(ctx.getText());
+    String variableName;
 
-    if (localVariable != null) {
-      localVariable.setUsed(true);
-    }
-
-    if (field != null) {
-      field.setUsed(true);
+    if (ctx.ambiguousName() != null) {
+      variableName = ctx.ambiguousName().Identifier().getText();
+      handleVariable(variableName, ctx);
+      String fieldName = ctx.Identifier().getText();
+      String className = getCurrentScope().getVariable(variableName).getType();
+      handleFieldObjectAccess(fieldName, className, ctx.start.getLine());
     } else {
-      System.err.format("Error at line %d, variable %s was not declared in this scope.\n", ctx.start.getLine(), ctx.getText());
-      System.exit(-1);
+      variableName = ctx.Identifier().getText();
+      handleVariable(variableName, ctx);
     }
   }
 
@@ -184,9 +183,20 @@ public class VariableListener extends Java8BaseListener {
   }
 
   @Override
-  public void visitErrorNode(final ErrorNode node) {
-    super.visitErrorNode(node);
-    System.exit(-1);
+  public void enterBasicForStatement(final BasicForStatementContext ctx) {
+    super.enterBasicForStatement(ctx);
+  }
+
+  @Override
+  public void enterEnhancedForStatement(final EnhancedForStatementContext ctx) {
+    LocalVariable localVariable = LocalVariable.builder()
+        .name(ctx.variableDeclaratorId().Identifier().getText())
+        .type(ctx.unannType().getText())
+        .line(ctx.start.getLine())
+        .clazz(currentClass)
+        .build();
+
+    getCurrentScope().add(localVariable);
   }
 
   private void handleFieldAccess(final TerminalNode identifier, final int line) {
@@ -224,4 +234,39 @@ public class VariableListener extends Java8BaseListener {
     return scopes.peek();
   }
 
+  private Optional<Clazz> getClassByName(String name) {
+    return allClasses.stream()
+        .filter(clazz -> clazz.getName().equals(name))
+        .findAny();
+  }
+
+  private void handleFieldObjectAccess(String fieldName, String className, int line) {
+    final Optional<Clazz> clazz = getClassByName(className);
+
+    if (clazz.isPresent()) {
+      Clazz existingClazz = clazz.get();
+      Field field = existingClazz.getField(fieldName);
+      if (field != null) {
+        field.setUsed(true);
+      } else {
+        throw new ProgramException("Error at line " + line + ", field " + fieldName + " does not exist in class " + existingClazz.getName());
+      }
+    }
+
+  }
+
+  private void handleVariable(String variableName, ExpressionNameContext ctx) {
+    Variable localVariable = getCurrentScope().getVariable(variableName);
+    Field field = currentClass.getField(variableName);
+
+    if (localVariable != null) {
+      localVariable.setUsed(true);
+      return;
+    } else if (field != null) {
+      field.setUsed(true);
+      return;
+    }
+    System.err.format("Error at line %d, variable %s was not declared in this scope.\n", ctx.start.getLine(), ctx.Identifier().getText());
+    System.exit(-1);
+  }
 }

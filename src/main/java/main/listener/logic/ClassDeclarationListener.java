@@ -4,6 +4,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 
+import org.antlr.v4.runtime.tree.ErrorNode;
+
 import main.listener.domain.Clazz;
 import main.Program;
 import main.antlr.Java8BaseListener;
@@ -56,6 +58,12 @@ public class ClassDeclarationListener extends Java8BaseListener {
         .orElseThrow(() -> new ProgramException("Super class " + superClassName + " at line " + ctx.start.getLine() + " is not defined."));
 
     getCurrentClass().setParent(parent);
+  }
+
+  @Override
+  public void visitErrorNode(final ErrorNode node) {
+    super.visitErrorNode(node);
+    System.exit(-1);
   }
 
   public void setSuperClasses() {

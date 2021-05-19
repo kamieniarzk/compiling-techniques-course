@@ -1,23 +1,36 @@
-class MyOwn {
+class A {
   private int counter;
   public static final String name;
 
   public static void main(String[] args) {
     int amount = 0;
-    //    myVar++;
-    System.out.println(this.name); // Display the string.
+  }
+
+  public int getAverage(int[] numbers) {
+    if (numbers.length == 0) {
+      return 0;
+    }
+
+    int sum = 0;
+
+    for (int number : numbers) {
+      sum += number;
+    }
+
+    return sum / numbers.length;
   }
 }
 
-class HelloWorldApp extends MyOwn {
-//  private int counter;
+class B extends A {
   public static final String name;
 
   public static void main(String[] args) {
-//    myVar++;
+    A a = new A();
+
     this.name++;
-//    counter++;
     System.out.println(name); // Display the string.
   }
 }
+
+
 

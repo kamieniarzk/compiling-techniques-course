@@ -42,8 +42,11 @@ public class Program {
 
     ParseTreeWalker walker = new ParseTreeWalker();
     ClassDeclarationListener classDeclarationListener = new ClassDeclarationListener();
-
-    walker.walk(classDeclarationListener, tree);
+    try {
+      walker.walk(classDeclarationListener, tree);
+    } catch (ProgramException e) {
+      exitWithError(e.getMessage());
+    }
 
     classDeclarationListener.setSuperClasses();
 
@@ -56,7 +59,6 @@ public class Program {
     } catch (ProgramException e) {
       exitWithError(e.getMessage());
     }
-
 
     List<Variable> unusedVariables = variableListener.getUnusedVariables();
 
