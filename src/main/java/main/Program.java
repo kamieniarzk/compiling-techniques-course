@@ -1,8 +1,10 @@
 package main;
 
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 
 import org.antlr.v4.runtime.CharStreams;
@@ -24,17 +26,27 @@ import main.listener.domain.variable.Variable;
 public class Program {
 
   public static void main(String[] args) {
+    for (String file : args) {
+      parseFile(file);
+    }
+  }
 
-    String javaClassContent = "";
+  public static void exitWithError(String message) {
+    System.err.println(message);
+    System.exit(-1);
+  }
+
+  public static void parseFile(String inputPath) {
+    String javFileContent = "";
 
     try {
-      FileInputStream fis = new FileInputStream("src/main/resources/HelloWorldApp.java");
-      javaClassContent = IOUtils.toString(fis, StandardCharsets.UTF_8);
+      FileInputStream fis = new FileInputStream(inputPath);
+      javFileContent = IOUtils.toString(fis, StandardCharsets.UTF_8);
     } catch (IOException e) {
       System.err.println("Error while reading input.");
     }
 
-    Java8Lexer java8Lexer = new Java8Lexer(CharStreams.fromString(javaClassContent));
+    Java8Lexer java8Lexer = new Java8Lexer(CharStreams.fromString(javFileContent));
 
     CommonTokenStream tokens = new CommonTokenStream(java8Lexer);
     Java8Parser parser = new Java8Parser(tokens);
@@ -62,16 +74,21 @@ public class Program {
 
     List<Variable> unusedVariables = variableListener.getUnusedVariables();
 
+    if (unusedVariables.isEmpty()) {
+      System.out.println("There were no unused variables in the input file.");
+    }
+
     unusedVariables.forEach(Program::printUnusedVariable);
+
+    try {
+      FileOutputStream outputStream = new FileOutputStream(inputPath);
+      outputStream.write(addComments(javFileContent, unusedVariables).getBytes(StandardCharsets.UTF_8));
+    } catch (IOException e) {
+      exitWithError("Error while saving the output.");
+    }
   }
 
-
-  public static void exitWithError(String message) {
-    System.err.println(message);
-    System.exit(-1);
-  }
-
-  public static void printUnusedVariable(Variable var) {
+  private static void printUnusedVariable(Variable var) {
     String messageToPrint;
 
     if (var instanceof MethodParameter) {
@@ -86,5 +103,18 @@ public class Program {
     }
 
     System.out.println(messageToPrint);
+  }
+
+  private static String addComments(String inputFileContent, List<Variable> unusedVariables) {
+    StringBuilder output = new StringBuilder();
+    String[] lines = inputFileContent.split("\n");
+
+    unusedVariables.forEach(var ->
+      lines[var.getLine() - 1] += " // unused variable"
+    );
+
+    Arrays.stream(lines).forEach(line -> output.append(line).append('\n'));
+
+    return output.toString();
   }
 }

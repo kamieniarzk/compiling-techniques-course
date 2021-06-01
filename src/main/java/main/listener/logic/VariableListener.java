@@ -12,8 +12,8 @@ import java.util.stream.Collectors;
 
 import org.antlr.v4.runtime.tree.TerminalNode;
 
-import main.antlr.Java8Parser.BasicForStatementContext;
 import main.antlr.Java8Parser.EnhancedForStatementContext;
+import main.antlr.Java8Parser.MethodInvocation_lfno_primaryContext;
 import main.listener.domain.Clazz;
 import main.listener.domain.Scope;
 import main.antlr.Java8BaseListener;
@@ -144,6 +144,8 @@ public class VariableListener extends Java8BaseListener {
     scopes.pop();
   }
 
+
+
   @Override
   public void enterExpressionName(final ExpressionNameContext ctx) {
     String variableName;
@@ -158,6 +160,12 @@ public class VariableListener extends Java8BaseListener {
       variableName = ctx.Identifier().getText();
       handleVariable(variableName, ctx);
     }
+  }
+
+  @Override
+  public void enterMethodInvocation_lfno_primary(final MethodInvocation_lfno_primaryContext ctx) {
+    String objectName = ctx.typeName().Identifier().getText();
+    handleVariable(objectName, null);
   }
 
   @Override
@@ -180,11 +188,6 @@ public class VariableListener extends Java8BaseListener {
     if (localVariable != null) {
       localVariable.setUsed(true);
     }
-  }
-
-  @Override
-  public void enterBasicForStatement(final BasicForStatementContext ctx) {
-    super.enterBasicForStatement(ctx);
   }
 
   @Override
@@ -266,7 +269,7 @@ public class VariableListener extends Java8BaseListener {
       field.setUsed(true);
       return;
     }
-    System.err.format("Error at line %d, variable %s was not declared in this scope.\n", ctx.start.getLine(), ctx.Identifier().getText());
-    System.exit(-1);
+
+    throw new ProgramException(String.format("Error at line %d, variable %s was not declared in this scope.\n", ctx.start.getLine(), ctx.Identifier().getText()));
   }
 }

@@ -1,5 +1,4 @@
 class A {
-  private int counter;
   public static final String name;
 
   public static void main(String[] args) {
@@ -22,15 +21,20 @@ class A {
 }
 
 class B extends A {
-  public static final String name;
 
   public static void main(String[] args) {
     A a = new A();
 
     this.name++;
-    System.out.println(name); // Display the string.
+    System.out.println(name);
+  }
+
+  public int getSum(int[] numbers) {
+    int sum = 0;
+    for (int i = 0; i < numbers.length; i++) {
+      sum += i;
+    }
+
+    return sum;
   }
 }
-
-
-
